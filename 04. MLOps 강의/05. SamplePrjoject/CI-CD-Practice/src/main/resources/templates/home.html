@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>방문 기록</title>
+</head>
+<body>
+    <form th:method="post" th:action="@{/visit}" th:object="${visitCreateRequest}">
+        <div>
+            <label th:for="*{visitor}">방문자 이름 : </label>
+            <input type="text" th:field="*{visitor}">
+        </div>
+        <div>
+            <label th:for="*{message}">방문 메세지 : </label>
+            <input type="text" th:field="*{message}">
+        </div>
+        <button type="submit">저장</button>
+    </form>
+    <br/><hr/>
+    <div>
+        <h3>방문 횟수 : [[${visitCnt}]]</h3>
+        <ul th:each="visit: ${visits}">
+            <li>
+                방문자 이름: [[${visit.visitor}]] <br/>
+                방문 메세지 : [[${visit.message}]] <br/>
+                방문한 시간 : [[${#temporals.format(visit.visitTime, 'yy/MM/dd HH:mm:ss')}]]
+            </li>
+        </ul>
+    </div>
+</body>
+</html>

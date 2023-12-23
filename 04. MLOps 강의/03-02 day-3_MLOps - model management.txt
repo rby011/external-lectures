@@ -1,0 +1,82 @@
+(mlflow 구성요소)
+① mlflow tracking 
+- model 의 코드, 하이퍼파라미터 변경하면서 실험시 각각의 model 버전에 metric 을 저장할 수 있는 중앙저장소를 제공
+- 모델 개발자들이 tracking server(중장저장소)에 메타 정보를 기록 할 수 있는 API 제공
+   * 메타정보 : 파라미터, 소스코드 버전, 날짜, 패키징된 모델 파일 자체, 학습에 사용한 데이터 자체, 모델의 description 등
+
+② mlflow projects
+- 데이터 타입,  파이토치/텐서플로/콘다/도커 버전 등을 모델에 의존성이 있는 정보를 함께 포함하여 패키징 
+
+③ mlflow models
+- R, pytorch, tensorflow 등의 모델 개발 f/w 에 관계없이 일관된 형태로 모델을 포멧화
+
+④ mlflow model registry ★ 중요 ★
+- 실험했던 모델을 저장하고 관리하는 저장소
+- staging/production 등의 상태 마킹 가능하고 cli/API 통해서 production 까지 이어지게 할 수 있음
+
+
+[1] mlflow 설치 및 mlflow ui 실행
+
+conda create -n python_3_8 python=3.8
+conda activate python_3_8
+
+pip install mlflow=2.2.2
+
+wget https://raw.githubusercontent.com/mlflow/mlflow/master/examples/sklearn_elasticnet_diabetes/linux/train_diabetes.py
+
+mlflow ui &
+
+* AWS inbound 설정 : 5000 번 포트 열어주어야 함
+* VSCode Remote SSH 사용시 localhost:5000 으로 fowarding 해줌
+
+
+[2] model 코드 작성
+
+------------------------------------------------------------------
+  # 파라미터 설정 및 모델 훈련 코드 中
+   alpha = float(sys.argv[1]) if len(sys.argv) > 1 else 0.05
+  l1_ratio = float(sys.argv[2]) if len(sys.argv) > 2 else 0.05
+  lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
+  lr.fit(train_x, train_y)
+
+  # mlflow ui 에 file:// 이 아니라 http:// 로 전달하도록 수정
+  mlflow.set_tracking_uri("http://localhost:5000")
+
+   # Log mlflow attributes for mlflow UI
+  mlflow.log_param("alpha", alpha)
+  mlflow.log_param("l1_ratio", l1_ratio)
+  mlflow.log_metric("rmse", rmse)
+  mlflow.log_metric("r2", r2)
+  mlflow.log_metric("mae", mae)
+  mlflow.sklearn.log_model(lr, "model", signature=signature)
+
+   # plot 파일 생성
+   fig = plt.figure(1)
+  ...
+  fig.savefig("ElasticNet-paths.png")
+
+   # Log artifacts (output files)
+  mlflow.log_artifact("ElasticNet-paths.png")
+------------------------------------------------------------------
+
+
+ubuntu@ip-172-31-11-154:~/excercise/mlflow$ python ./train_diabetes.py 0.01 0.05
+Elasticnet model (alpha=0.010000, l1_ratio=0.050000):
+  RMSE: 71.18701696862759
+  MAE: 59.89315478775425
+  R2: 0.23378306702774365
+Computing regularization path using the elastic net.
+
+ubuntu@ip-172-31-11-154:~/excercise/mlflow$ python ./train_diabetes.py 0.01 0.01
+Elasticnet model (alpha=0.010000, l1_ratio=0.010000):
+  RMSE: 71.40362571026475
+  MAE: 60.09124839565383
+  R2: 0.2291130640003659
+Computing regularization path using the elastic net.
+
+ubuntu@ip-172-31-11-154:~/excercise/mlflow$ python ./train_diabetes.py 0.03 0.01
+Elasticnet model (alpha=0.030000, l1_ratio=0.010000):
+  RMSE: 76.84349125622653
+  MAE: 64.81470466856142
+  R2: 0.10717913217883157
+Computing regularization path using the elastic net.

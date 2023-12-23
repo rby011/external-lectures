@@ -1,0 +1,61 @@
+ML 작업시 활용하는 Data 의 버전 관리는 대개 Git 과 연계되어 수행
+이를 지원해주는 도구들이 DVC, Pachyderm, Delta Lake, Dolt 등이 있음
+
+DVC 는 S3, Google Driver 등 스토리지 연계, DAG 로 Pipepline 관리 (reproducible) 등의 장점 기능이 있음
+- dvc add 시 local 에 있는 데이터에 대한 meta 파일이 만들어지고 이 meta 파일을 git 을 기반으로 버전 관리됨
+- git pull/push , dvc pull/push 의 쌍으로 구성된다고 보면 됨
+
+ssh -i "C:\Users\chsun\Desktop\datascience\06. MLOps 강의\04. AWS 구성\kube-key-pair.pem" ubuntu@ec2-13-124-185-169.ap-northeast-2.compute.amazonaws.com
+
+
+
+[1] DVC 설치하기
+
+
+(파이선 3.9)
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt-get update
+sudo apt-get install python3.9
+
+(python → python3 로 aliasing)
+vim ~/.basrhc
+
+# aliasing 
+alias python3=python
+
+(python3 alternatives 설정)
+ubuntu@ip-172-31-11-154:~$ ls /usr/bin | grep python
+dh_python2
+ipython
+ipython3
+python2
+python2.7
+python3
+python3-config
+python3-unidiff
+python3.8
+python3.8-config
+python3.9
+python3.9-config
+
+ubuntu@ip-172-31-11-154:~$ sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1
+update-alternatives: using /usr/bin/python3.9 to provide /usr/bin/python3 (python3) in auto mode
+ubuntu@ip-172-31-11-154:~$ sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 2
+update-alternatives: using /usr/bin/python3.8 to provide /usr/bin/python3 (python3) in auto mode
+
+ubuntu@ip-172-31-11-154:~$ sudo update-alternatives --config python3
+There are 2 choices for the alternative python3 (providing /usr/bin/python3).
+
+  Selection    Path                Priority   Status
+------------------------------------------------------------
+* 0            /usr/bin/python3.8   2         auto mode
+  1            /usr/bin/python3.8   2         manual mode
+  2            /usr/bin/python3.9   1         manual mode
+
+Press <enter> to keep the current choice[*], or type selection number: 2
+update-alternatives: using /usr/bin/python3.9 to provide /usr/bin/python3 (python3) in manual mode
+
+
+
+
+

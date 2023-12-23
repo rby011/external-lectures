@@ -1,0 +1,125 @@
+[1] kubeflow 설치
+
+(1) Prerequisite
+ - Kubernetes 환경
+ - 버전 : v1.17 ~ v1.21  * v1.19.3 사용
+ - Default StorageClass : Dynamic provisioning 지원하는 storageclass
+ - TokenRequest API 활성화 
+    . alpha version 의 API 이므로, k8s APIServer 에 해당 feature gate 를 설정
+
+
+(2) kustomize 설정
+
+(kustomize 설치 및 설정)
+# 바이너리 다운 (for linux amd64)
+# 이외의 os 는 https://github.com/kubernetes-sigs/kustomize/releases/tag/v3.2.0 경로에서 b
+inary 링크 확인
+wget https://github.com/kubernetes-sigs/kustomize/releases/download/v3.2.0/kustomize_3.2.0_linux_amd64
+
+# file mode 변경
+chmod +x kustomize_3.2.0_linux_amd64
+
+# file 위치 변경
+sudo mv kustomize_3.2.0_linux_amd64 /usr/local/bin/kustomize
+
+# version 확인
+kustomize version
+
+
+
+(3) kubernetess 실행
+
+# minikube start
+# docker driver option
+# cpu 4 개 할당
+# memory 7g 할당
+# kubernetes version v.19.3 설정 → 1.27.4 로 변경했음
+# --extra-config 부분은 tokenRequest 활성화 관련 설정
+minikube start --driver=docker \
+--cpus='4' --memory='7g' \
+--kubernetes-version=v1.21 \
+--extra-config=apiserver.service-account-signing-key-file=/var/lib/minikube/certs/sa.key \
+--extra-config=apiserver.service-account-issuer=kubernetes.default.svc
+
+
+(4) Git clone kubeflow/manifests
+
+git clone https://github.com/kubeflow/manifests
+
+cd /home/ubuntu/excercise/kubeflow
+cd manifests
+
+# v1.4.0 태그 시점으로 git checkout
+git checkout tags/v1.4.0
+
+
+(5) Install individual components
+
+# cert-manager
+kustomize build common/cert-manager/cert-manager/base | kubectl apply -f -
+kustomize build common/cert-manager/kubeflow-issuer/base | kubectl apply -f -
+
+# istio
+kustomize build common/istio-1-9/istio-crds/base | kubectl apply -f -
+kustomize build common/istio-1-9/istio-namespace/base | kubectl apply -f -
+kustomize build common/istio-1-9/istio-install/base | kubectl apply -f -
+
+# dex
+kustomize build common/dex/overlays/istio | kubectl apply -f -
+
+# oidc authservice
+kustomize build common/oidc-authservice/base | kubectl apply -f -
+
+# (설치X)knative 
+kustomize build common/knative/knative-serving/base | kubectl apply -f -
+kustomize build common/istio-1-9/cluster-local-gateway/base | kubectl apply -f -
+
+# (설치X)knative - optional
+kustomize build common/knative/knative-eventing/base | kubectl apply -f -
+
+# kubeflow namespace
+kustomize build common/kubeflow-namespace/base | kubectl apply -f -
+
+# kubeflow roles
+kustomize build common/kubeflow-roles/base | kubectl apply -f -
+
+# kubeflow istio resources
+kustomize build common/istio-1-9/kubeflow-istio-resources/base | kubectl apply -f -
+
+# kubeflow pipeline (docker)
+kustomize build apps/pipeline/upstream/env/platform-agnostic-multi-user | kubectl apply -f -
+
+# (설치X)kfserving
+kustomize build apps/kfserving/upstream/overlays/kubeflow | kubectl apply -f -
+
+# katib
+kustomize build apps/katib/upstream/installs/katib-with-kubeflow | kubectl apply -f -
+
+# central dashboard
+kustomize build apps/centraldashboard/upstream/overlays/istio | kubectl apply -f -
+
+# admission webhook
+kustomize build apps/admission-webhook/upstream/overlays/cert-manager | kubectl apply -f -
+
+# notebook
+kustomize build apps/jupyter/notebook-controller/upstream/overlays/kubeflow | kubectl apply -f -
+kustomize build apps/jupyter/jupyter-web-app/upstream/overlays/istio | kubectl apply -f -
+
+# profiles + KFAM
+kustomize build apps/profiles/upstream/overlays/kubeflow | kubectl apply -f -
+
+# volumens web app
+kustomize build apps/volumes-web-app/upstream/overlays/istio | kubectl apply -f -
+
+# tensorboard
+kustomize build apps/tensorboard/tensorboards-web-app/upstream/overlays/istio | kubectl apply -f -
+kustomize build apps/tensorboard/tensorboard-controller/upstream/overlays/kubeflow | kubectl apply -f -
+
+# (설치X)tranining operator
+kustomize build apps/training-operator/upstream/overlays/kubeflow | kubectl apply -f -
+
+# (설치X)MPI operator
+kustomize build apps/mpi-job/upstream/overlays/kubeflow | kubectl apply -f -
+
+# User namespace
+kustomize build common/user-namespace/base | kubectl apply -f -

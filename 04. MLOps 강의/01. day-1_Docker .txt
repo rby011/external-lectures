@@ -1,0 +1,138 @@
+[0] VirtualBox
+- cpu 3 , 메모리 4096 
+- 디스플레이 64MB, VBoxSVGA , 3D 가속 제외
+- ubuntu desktop 20.4 설치 (*update 하여 설치)
+- 클립보드 공유 설정 후 VBox VM 에 관련 패키지 설치
+  * https://theniceguy.tistory.com/13
+
+[0] AWS 로 기본 환경 설정
+
+- t2.xlarge * 
+- public ip : t2.xlarge
+- 
+
+[1] Docker 설치
+
+① pre-requisite 패키지 설치
+
+sudo apt-get update 해서 갱신
+
+------------------------------------------
+sudo apt-get install \
+apt-transport-https \
+ca-certificates \
+curl \
+gnupg \
+lsb-release
+------------------------------------------
+
+②  Docker의 공식 GPG 키를 Ubuntu 시스템에 추가
+
+------------------------------------------
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+------------------------------------------
+
+
+③ Docker의 공식 Ubuntu 저장소를 시스템의 APT 소스 목록에 추가
+
+------------------------------------------
+echo \
+"deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+------------------------------------------
+
+sudo apt-get update 해서 apt repo 갱신
+
+
+④ Docker 를 apt 로 설치
+
+------------------------------------------
+sudo apt-get install docker-ce docker-ce-cli containerd.io
+------------------------------------------
+
+* 정상설치 확인
+sudo docker run hello-world
+
+
+[2] Docker 권한 설정
+
+------------------------------------------
+sudo usermod -a -G docker $USER
+------------------------------------------
+
+* sudo apt-get install members 설치해서 docker 그룹내 $USER 설정 확인
+
+sudo service docker restart * reboot
+
+docker ps 실행하여 정상 동작함을 확인해서 권한 설정 성공여부 확인
+
+
+[3] Dockerfile 구성 및 Image 빌드
+
+
+① Dockerfile 만들고 빌드 하기
+
+
+(./Dockerfile)
+------------------------------------------
+FROM ubuntu:18.04
+
+# Image 가 빌드되는 시점에 
+RUN apt-get update
+
+# Container 컨테이너가 구동 시작되는 시점에 출력
+CMD ["echo", "Hello Docker"]
+------------------------------------------
+
+(Docker build) 현 위치의 Dockerfile 을 빌드해서 my-image 이미지를 생성
+------------------------------------------
+docker build -t my-image:v1.0.0 .
+------------------------------------------
+
+② Docker Registry 구성
+
+------------------------------------------ 
+docker run -d -p 5000:5000 --name registry registry
+------------------------------------------
+→ docker-hub 에서 registry 이미지를 받아서 registry 이미지를 registry 라는 이름으로 백그라운 모드로 구동
+→ 컨테이너 5000 포트 와 호스트 5000 포트를 바인딩해서 통신
+
+* docker ps 로 registry 구성된 것 살펴봐야 함
+
+③ registry 를 바라보는 것을 표기하기 위해 image 이를 지정
+
+------------------------------------------
+docker tag my-image:v1.0.0 localhost:5000/my-image:v1.0.0
+------------------------------------------
+
+* 이미지의 이름 구조는 [registry-domain/][user-or-organization-name/][repository-name]:[tag] 형태
+
+* docker images | grep my-image 로 이미지 목록 확인
+
+
+④ registry 에 push 하기
+
+------------------------------------------
+docker push localhost:5000/my-image:v1.0.0
+------------------------------------------
+
+* curl -X GET http://localhost:5000/v2/my-image/tags/list 로 정상 push 되었는지 확인
+
+- http://localhost:5000: 로컬 머신에서 5000 포트로 동작 중인 Docker Registry의 주소
+- /v2: Docker Registry API의 버전 2
+- /my-image/tags/list: my-image 저장소의 태그 목록을 가져오는 API 
+
+※ Docker Hub 는 Public 한 Docker Registry
+
+
+
+⑤ registry 에 있는 image 를 실행하기
+
+------------------------------------------
+docker run -it localhost:5000/my-image:v1.0.0
+------------------------------------------
+
+* local 에 위치한 관련 image, container 삭제
+  - docker rm 으로 컨테이너 삭제 (if any)
+  - docker rmi localhost:5000/my-image:v1.0.0 로 local 위치한 image 삭제
+

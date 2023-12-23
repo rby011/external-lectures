@@ -1,0 +1,81 @@
+
+https://velog.io/@zinukk/EC2%EB%A1%9C-%EB%B0%B0%ED%8F%AC%ED%95%9C-Next.js-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-https-%EC%A0%81%EC%9A%A9%ED%95%98%EA%B8%B0
+
+https://rachel0115.tistory.com/entry/Github-Actions%EB%A1%9C-CICD-%EA%B5%AC%EC%B6%95%ED%95%98%EA%B8%B0-EC2-S3-CodeDeploy
+
+https://lucas-owner.tistory.com/49
+
+★ https://codegear.tistory.com/84
+
+
+
+docker hub install on windows11 (local pc)
+- https://axce.tistory.com/110?category=1030982
+- https://axce.tistory.com/121
+
+
+(1) powershell 7 설치
+
+powershell 실행(관리자)
+command 실행
+- winget search Microsoft.PowerShell
+- winget install --id Microsoft.Powershell --source winget
+- winget install --id Microsoft.Powershell.Preview --source winget
+※ https://learn.microsoft.com/ko-kr/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.3#install-powershell-using-winget-recommended
+
+
+(2) WSL2 기능 활성화 * Windows Subsystems for Linux 
+[ref] https://axce.tistory.com/110?category=1030982
+
+- WSL2 활성화 @ Powershell 7 (관리자)
+ dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+- Virtual Machine Platform 활성화
+  dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+
+- Microsoft Store 에서 Ubunutu 20 04 '다운로드' → '열기' 로 설치 @ Microsoft Store
+  . chsun / prime001
+
+- Microsoft Store 에서 Ubunutu 22 04 '다운로드' → '열기' 로 설치 @ Microsoft Store
+  . chsun / prime001
+
+   ※ Ubuntu 20 04 설치시 0x800701bc 에러 발생 → WSL2 Linux Kernel Update (msi)
+    https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi
+
+- WSL에서 사용할 Ubuntu 기본값 설정 @ Power Shell 7 (관리자)
+
+PS C:\Windows\System32> wsl --list --all
+Linux용 Windows 하위 시스템 배포:
+Ubuntu-22.04(기본값)
+Ubuntu-20.04
+
+PS C:\Windows\System32> wsl --set-default Ubuntu-20.04
+PS C:\Windows\System32> wsl --set-version Ubuntu-20.04 2
+변환이 진행 중입니다. 몇 분 정도 걸릴 수 있습니다...
+WSL 2와의 주요 차이점에 대한 자세한 내용은 https://aka.ms/wsl2를 참조하세요
+배포가 이미 요청된 버전입니다.
+
+PS C:\Windows\System32> wsl --list --all
+Linux용 Windows 하위 시스템 배포:
+Ubuntu-20.04(기본값)
+Ubuntu-22.04
+
+ - WSL2 를 기본값으로 설정
+PS C:\Windows\System32> wsl --set-default-version 2
+WSL 2와의 주요 차이점에 대한 자세한 내용은 https://aka.ms/wsl2를 참조하세요
+작업을 완료했습니다
+
+- WSL2 환경에 적절한 Windows Terminal 설치 @ Microsoft Store
+
+
+docker hub 
+- user name : rby011
+- password : prime001!
+- token : dckr_pat_KqJZWZUzmODHHxRR5uG0Qx9AUUk
+
+# github personal access key
+
+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
+
+
+
+!git clone https://rby011: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@github.com/rby011/lm-evaluation-harness.git

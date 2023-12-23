@@ -1,0 +1,222 @@
+1. EKS 구성
+
+* AWS EKS(Elastic Kubenretes Service)
+- 자체 Kuberenetes 제어 플레인을 설치, 운영 필요 없이 Kubenretest 를 쉽게 사용
+
+
+* Bastion Server
+- AMI : ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20230516
+- 연결 : ssh -i "C:\Users\chsun\Desktop\datascience\06. MLOps 강의\04. AWS 구성\kube-key-pair.pem" ubuntu@ec2-3-36-114-24.ap-northeast-2.compute.amazonaws.com
+
+
+* pre-requisite on bastion server (docker 설치됨 가정)
+
+
+① 명령어 인터페이스 설치
+
+(kubectl)
+curl -LO https://dl.k8s.io/release/v1.23.0/bin/linux/amd64/kubectl
+chmod +x ./kubectl
+sudo mv ./kubectl /usr/local/bin/kubectl 
+
+
+(aws cli)
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+eksctl version
+
+(eksctl)
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+sudo mv /tmp/eksctl /usr/local/bin 
+
+
+② AWS IAM Authenticator 설치 : IAM 기반 Kuberetest 클러스터 인증용
+
+curl -o aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.18.9/2020-11-02/bin/linux/amd64/aws -iam-authenticator
+
+chmod +x ./aws-iam-authenticator 
+
+mkdir -p $HOME/bin && cp ./aws-iam-authenticator $HOME/bin/aws-iam-authenticator && export PATH=$PATH:$HOME/bin
+
+echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc
+
+aws-iam-authenticator help
+
+
+③ LBC(Load Balance Controller) 버전 설정
+
+echo 'export LBC_VERSION="v2.0.0"' >>  ~/.bash_profile
+
+.  ~/.bash_profile
+
+
+④ IAM Role 추가 
+
+(IAM Role 생성)
+- AWS EC2 콘솔 > IAM > 역할 > 역할 만들기 에서 신뢰할 수 있는 엔터티 유형을 "AWS 서비스", 사용사례를 일반사용사례의 "EC2" 선택 후 다음
+- AdministratorAccess 검색해서 선택 후 역할이름을 설정해서 생성
+
+(생성한 Role 을 Bastion Server 에 추가)
+- AWS EC2 콘솔 > 작업 > 보안 > IAM 역할 수정 에서 생성한 Role 로 변경
+- .aws/credentials 파일이 있으면 삭제
+
+(확인) AWS_REGION 이 출력되어야 정상
+export ACCOUNT_ID=$(aws sts get-caller-identity --output text --query Account)
+export AWS_REGION=$(curl -s 169.254.169.254/latest/dynamic/instance-identity/document | jq -r '.region')
+test -n "$AWS_REGION" && echo AWS_REGION is "$AWS_REGION" || echo AWS_REGION is not set
+
+(환경변수 등록)
+echo "export ACCOUNT_ID=${ACCOUNT_ID}" | tee -a ~/.bash_profile
+echo "export AWS_REGION=${AWS_REGION}" | tee -a ~/.bash_profile
+aws configure set default.region ${AWS_REGION}
+aws configure get default.region
+
+(IAM Role 수정 확인) sts : service token service , Arn : amazon resource name
+aws sts get-caller-identity --query Arn | grep <생성한 역할이름> -q && echo "IAM role valid" || echo "IAM role NOT valid"
+
+
+⑤ yq 설치
+
+ echo 'yq() {docker run --rm -i -v "${PWD}":/workdir mikefarah/yq yq "$@"}' | tee -a ~/.bashrc && source ~/.bashrc
+
+⑦ jq 설치 
+
+mikefarah/yq
+
+
+⑧ EKS 구성 yaml 작성 및 cluster 생성
+
+(key 생성)
+ssh-keygen -t rsa
+cat .ssh/id_rsa.pub
+
+
+(Cluster 구성)
+
+apiVersion: eksctl.io/v1alpha5 
+kind: ClusterConfig
+
+metadata:
+  name: kube-test
+  region: ap-northeast-2    # 적정한 리전에
+  version: '1.23'           # 버전은 최신의 것으로
+
+nodeGroups:
+- name: cpu-nodegroup
+  instanceType: m5.xlarge 
+  desiredCapacity: 1        # 노드 개수 별로 돈이니
+  minSize: 0
+  maxSize: 6
+  volumeSize: 20            # 적정한 사이즈로
+  ssh:
+    allow: true
+    publicKeyPath: '~/.ssh/id_rsa.pub'
+
+
+(Cluster 생성) 10분 정도 소요
+eksctl create cluster -f cluster.yaml
+
+
+(Cluster 생성 확인)
+ubuntu@ip-172-31-15-230:~/excercise$ eksctl get cluster 
+NAME            REGION          EKSCTL CREATED
+kube-test       ap-northeast-2  True
+ 
+eksctl get nodegroup --cluster 
+CLUSTER         NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID                ASG NAME   TYPE
+kube-test       cpu-nodegroup   CREATE_COMPLETE 2023-09-30T15:34:40Z    0               6               1                       m5.xlarge       ami-076ae125c6a499330   eksctl-kube-test-nodegroup-cpu-nodegroup-NodeGroup-ZRCQEMYBA6ZR     unmanaged
+
+
+⑧ Cluster 종료 * auto scaling 되어 node group 이 계속 살아나니..
+(node 개수를 0으로 설정)
+eksctl scale nodegroup --cluster=<cluster-name> --name=<nodegroup-name> --nodes=0
+
+eksctl scale nodegroup --cluster=kube-test --name=cpu-nodegroup --nodes=3
+
+
+(cluster 삭제)
+eksctl delete cluster --name=<cluster-name>
+
+
+
+2. Kubeflow 설치
+
+(블로그)
+① Kubectl 다운로드 및 실행위치 변경
+
+curl -L -O -J https://github.com/kubeflow/kfctl/releases/download/v1.2.0/kfctl_v1.2.0-0-gbc038f9_linux.tar.gz
+tar -xvf kfctl_v1.2.0-0-gbc038f9_linux.tar.gz
+sudo mv ./kfctl /usr/local/bin 
+
+
+② Kueflow 설치 위한 환경 변수
+
+export PATH=$PATH:"/usr/local/bin"
+export CONFIG_URI="https://raw.githubusercontent.com/kubeflow/manifests/v1.2-branch/kfdef/kfctl_aws.v1.2.0.yaml"
+export AWS_CLUSTER_NAME=kube-test
+
+③ 설치 폴더 생성 및 manifest (kubeflow 구성) 다운로드
+
+mkdir ${AWS_CLUSTER_NAME} && cd ${AWS_CLUSTER_NAME}
+wget -O kfctl_aws.yaml $CONFIG_URI
+
+④ //
+
+
+wget https://github.com/mikefarah/yq/releases/download/v4.2.0/yq_linux_amd64.tar.gz
+
+(AWS 공식 페이지 - eks 구성 )
+https://github.com/aws-samples/amazon-efs-developer-zone/tree/main/application-integration/container/eks
+
+https://github.com/aws-samples/amazon-efs-developer-zone/tree/main/application-integration/container/eks/kubeflow
+* https://aws.amazon.com/ko/blogs/tech/machine-learning-with-kubeflow-on-amazon-eks-with-amazon-efs/
+
+
+
+sudo curl --silent --location -o /usr/local/bin/kubectl \
+   https://amazon-eks.s3.us-west-2.amazonaws.com/1.21.2/2021-07-05/bin/linux/amd64/kubectl
+
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+sudo mv /usr/local/bin/aws /usr/bin/aws
+
+
+eksctl create iamidentitymapping --cluster efsworkshop-eksctl --arn ${rolearn} --group system:masters --username admin
+eksctl create iamidentitymapping --cluster efsworkshop-eksctl --arn ${rolearn} --group system:masters --no-duplicate-arns --username admin
+
+
+
+
+aws cloud9 describe-environment-memberships --environment-id=$C9_PID | jq -r '.memberships[].userArn'
+
+
+
+eksctl get iamidentitymapping --cluster efsworkshop-eksctl --region=region-code
+RN                                                                                             USERNAME                                GROUPS                          ACCOUNT
+arn:aws:iam::687184085706:role/eksctl-efsworkshop-eksctl-nodegro-NodeInstanceRole-M2HXJSYYJ2FI  system:node:{{EC2PrivateDNSName}}       system:bootstrappers,system:nodes
+ec2-user:~/environment $ 
+
+
+aws eks describe-cluster --name efsworkshop-eksctl --query "cluster.arn" --output text
+
+eksctl create iamidentitymapping \
+    --cluster efsworkshop-eksctl \
+    --arn arn:aws:eks:ap-northeast-2:687184085706:cluster/efsworkshop-eksctl \
+    --group eks-console-dashboard-restricted-access-group \
+
+
+
+c9builder=$(aws sts get-caller-identity | jq -r '.memberships[].userArn')
+if echo ${c9builder} | grep -q user; then
+    rolearn=${c9builder}
+        echo Role ARN: ${rolearn}
+elif echo ${c9builder} | grep -q assumed-role; then
+        assumedrolename=$(echo ${c9builder} | awk -F/ '{print $(NF-1)}')
+        rolearn=$(aws iam get-role --role-name ${assumedrolename} --query Role.Arn --output text) 
+        echo Role ARN: ${rolearn}
+fi
+
+
+
